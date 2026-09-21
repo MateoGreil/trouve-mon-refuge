@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Carte des refuges des Pyrénées</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+</head>
+<body>
+  <h1>REFUGES DES PYRÉNÉES</h1>
+
+  <pre>
+============================================================
+ CARTE DES CABANES ET REFUGES
+ Saint-Jean-de-Luz -------------------------------- Andorre
+============================================================
+  </pre>
+
+  <p><b>Résultats :</b> <span id="refuge-count">26</span> refuges.</p>
+
+  <p><b>Critères appliqués :</b></p>
+  <ul>
+    <li>refuge déclaré ouvert ;</li>
+    <li>8 places ou plus ;</li>
+    <li>cheminée présente ;</li>
+    <li>eau à moins de 100 mètres ;</li>
+    <li>forêt à moins de 100 mètres.</li>
+  </ul>
+
+  <p>
+    [ <a href="https://www.refuges.info/api/bbox?bbox=-1.67%2C42.40%2C1.53%2C43.45&amp;types_point=7%2C9%2C10&amp;nb_points=all&amp;detail=complet&amp;format=geojson&amp;format_texte=texte" target="_blank" rel="noopener noreferrer">DONNÉES JSON</a> ]
+    [ <a href="https://www.refuges.info/api/doc/" target="_blank" rel="noopener noreferrer">DOCUMENTATION API</a> ]
+  </p>
+
+  <hr>
+
+  <p id="network-error" hidden><b>ERREUR :</b> la bibliothèque ou le fond de carte ne peut pas être chargé. Vérifiez la connexion Internet.</p>
+
+  <div id="map" style="height: 70vh; min-height: 400px;"></div>
+
+  <hr>
+
+  <h2>AVERTISSEMENT</h2>
+  <p>
+    « Bois » signifie qu'une forêt est signalée à moins de 100 mètres.
+    L'eau n'est pas nécessairement potable ou permanente.
+    La présence d'une cheminée ne garantit pas son bon fonctionnement.
+    Vérifiez la fiche et les commentaires récents avant de partir.
+  </p>
+  <p><small>Instantané Refuges.info du 21 septembre 2026. Fond de carte OpenTopoMap.</small></p>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    const refuges = [
+      {"id":4085,"name":"Refuge d'Azpegi","type":"cabane non gardée","capacity":15,"altitude":984,"latitude":43.03234,"longitude":-1.2273,"url":"https://www.refuges.info/point/4085/cabane-non-gardee/refuge-d-Azpegi/"},
+      {"id":3745,"name":"Cabane Egurgio","type":"cabane non gardée","capacity":15,"altitude":840,"latitude":43.01063,"longitude":-1.14364,"url":"https://www.refuges.info/point/3745/cabane-non-gardee/cabane-Egurgio/"},
+      {"id":3744,"name":"El Cubo","type":"cabane non gardée","capacity":11,"altitude":800,"latitude":42.99622,"longitude":-1.10341,"url":"https://www.refuges.info/point/3744/cabane-non-gardee/el-Cubo/"},
+      {"id":3750,"name":"Chalet forestier de la Soule","type":"cabane non gardée","capacity":16,"altitude":1000,"latitude":43.02958,"longitude":-1.07737,"url":"https://www.refuges.info/point/3750/cabane-non-gardee/chalet-forestier-de-la-Soule/"},
+      {"id":6113,"name":"Cayolar Zingolatze","type":"cabane non gardée","capacity":12,"altitude":1230,"latitude":43.05,"longitude":-1.0488,"url":"https://www.refuges.info/point/6113/cabane-non-gardee/cayolar-Zingolatze/"},
+      {"id":4086,"name":"Cayolar d'Ardane","type":"cabane non gardée","capacity":12,"altitude":1327,"latitude":42.96719,"longitude":-0.94034,"url":"https://www.refuges.info/point/4086/cabane-non-gardee/cayolar-d-Ardane/"},
+      {"id":5799,"name":"Cabane d'Arrioutort","type":"cabane non gardée","capacity":15,"altitude":1500,"latitude":42.97503,"longitude":-0.47192,"url":"https://www.refuges.info/point/5799/cabane-non-gardee/cabane-d-Arrioutort/"},
+      {"id":5531,"name":"Cabane de Cap de Pount","type":"cabane non gardée","capacity":8,"altitude":1645,"latitude":42.84037,"longitude":-0.46925,"url":"https://www.refuges.info/point/5531/cabane-non-gardee/cabane-de-Cap-de-Pount/"},
+      {"id":4800,"name":"Cabane d'Arrégatiou","type":"cabane non gardée","capacity":8,"altitude":1670,"latitude":42.84237,"longitude":-0.39944,"url":"https://www.refuges.info/point/4800/cabane-non-gardee/cabane-d-Arregatiou/"},
+      {"id":7590,"name":"Cabane de Couscouilha","type":"cabane non gardée","capacity":8,"altitude":1370,"latitude":43.04808,"longitude":-0.34862,"url":"https://www.refuges.info/point/7590/cabane-non-gardee/cabane-de-Couscouilha/"},
+      {"id":8537,"name":"Cabane du col d'Andorre","type":"cabane non gardée","capacity":10,"altitude":1430,"latitude":43.03426,"longitude":-0.15936,"url":"https://www.refuges.info/point/8537/cabane-non-gardee/cabane-du-col-d-Andorre/"},
+      {"id":3743,"name":"Refuge Russell","type":"cabane non gardée","capacity":10,"altitude":1980,"latitude":42.8255,"longitude":-0.08629,"url":"https://www.refuges.info/point/3743/cabane-non-gardee/refuge-Russell/"},
+      {"id":5840,"name":"Refuge de Armeña","type":"cabane non gardée","capacity":16,"altitude":1860,"latitude":42.52408,"longitude":0.34708,"url":"https://www.refuges.info/point/5840/cabane-non-gardee/refuge-de-Armena/"},
+      {"id":7370,"name":"Cabane d'Arrouge","type":"cabane non gardée","capacity":8,"altitude":2120,"latitude":42.7321,"longitude":0.4861,"url":"https://www.refuges.info/point/7370/cabane-non-gardee/cabane-d-Arrouge/"},
+      {"id":4349,"name":"Refuge de Saoubette","type":"cabane non gardée","capacity":15,"altitude":1263,"latitude":42.89548,"longitude":0.49797,"url":"https://www.refuges.info/point/4349/cabane-non-gardee/refuge-de-Saoubette/"},
+      {"id":5876,"name":"Refugio de Coronas / Pescadores","type":"cabane non gardée","capacity":12,"altitude":1970,"latitude":42.61033,"longitude":0.62109,"url":"https://www.refuges.info/point/5876/cabane-non-gardee/refugio-de-Coronas-Pescadores/"},
+      {"id":6406,"name":"Refuge Saint Martin","type":"cabane non gardée","capacity":10,"altitude":930,"latitude":43.00514,"longitude":0.64176,"url":"https://www.refuges.info/point/6406/cabane-non-gardee/refuge-Saint-Martin/"},
+      {"id":8653,"name":"Cabane Salode","type":"cabane non gardée","capacity":20,"altitude":1545,"latitude":42.85709,"longitude":0.65218,"url":"https://www.refuges.info/point/8653/cabane-non-gardee/cabane-Salode/"},
+      {"id":5792,"name":"Cabane du Pic du Gar","type":"cabane non gardée","capacity":9,"altitude":1550,"latitude":42.95489,"longitude":0.69347,"url":"https://www.refuges.info/point/5792/cabane-non-gardee/cabane-du-Pic-du-Gar/"},
+      {"id":5793,"name":"Cabane de l'Escalette","type":"cabane non gardée","capacity":20,"altitude":1600,"latitude":42.92243,"longitude":0.75107,"url":"https://www.refuges.info/point/5793/cabane-non-gardee/cabane-de-l-Escalette/"},
+      {"id":7767,"name":"Cabane de Juzet","type":"cabane non gardée","capacity":10,"altitude":1355,"latitude":42.95316,"longitude":0.7593,"url":"https://www.refuges.info/point/7767/cabane-non-gardee/cabane-de-Juzet/"},
+      {"id":5790,"name":"Cabane de Larreix","type":"cabane non gardée","capacity":12,"altitude":1470,"latitude":42.93443,"longitude":0.76124,"url":"https://www.refuges.info/point/5790/cabane-non-gardee/cabane-de-Larreix/"},
+      {"id":5604,"name":"Cabane forestière du Piéjau","type":"cabane non gardée","capacity":17,"altitude":1459,"latitude":42.90641,"longitude":0.83315,"url":"https://www.refuges.info/point/5604/cabane-non-gardee/cabane-forestiere-du-Piejau/"},
+      {"id":5514,"name":"Cabane de Graouilles","type":"cabane non gardée","capacity":10,"altitude":1150,"latitude":42.8165,"longitude":0.9848,"url":"https://www.refuges.info/point/5514/cabane-non-gardee/cabane-de-Graouilles/"},
+      {"id":6263,"name":"Cabane de Subera","type":"cabane non gardée","capacity":12,"altitude":1499,"latitude":42.82586,"longitude":1.10767,"url":"https://www.refuges.info/point/6263/cabane-non-gardee/cabane-de-Subera/"},
+      {"id":3459,"name":"Cabane de Bazet","type":"cabane non gardée","capacity":8,"altitude":1450,"latitude":42.7746,"longitude":1.32887,"url":"https://www.refuges.info/point/3459/cabane-non-gardee/cabane-de-Bazet/"}
+    ];
+
+    const escapeHtml = (value) => String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+    const initializeMap = () => {
+      const map = L.map("map");
+      const tiles = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+        maxZoom: 17,
+        attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+      });
+
+      tiles.on("tileerror", () => {
+        document.getElementById("network-error").hidden = false;
+      });
+      tiles.addTo(map);
+
+      const markers = refuges.map((refuge) => {
+        const marker = L.marker([refuge.latitude, refuge.longitude]);
+        marker.bindTooltip(escapeHtml(refuge.name));
+        marker.bindPopup(`
+          <b>${escapeHtml(refuge.name)}</b><br>
+          <table border="0" cellpadding="2">
+            <tr><td>Places :</td><td><b>${refuge.capacity}</b></td></tr>
+            <tr><td>Altitude :</td><td>${escapeHtml(refuge.altitude)} m</td></tr>
+            <tr><td>Type :</td><td>${escapeHtml(refuge.type)}</td></tr>
+            <tr><td>Latitude :</td><td>${refuge.latitude.toFixed(5)}</td></tr>
+            <tr><td>Longitude :</td><td>${refuge.longitude.toFixed(5)}</td></tr>
+          </table>
+          <a href="${escapeHtml(refuge.url)}" target="_blank" rel="noopener noreferrer">Voir la fiche Refuges.info</a>
+        `);
+        marker.addTo(map);
+        return marker;
+      });
+
+      map.fitBounds(L.featureGroup(markers).getBounds(), {
+        padding: [20, 20],
+        maxZoom: 9
+      });
+      document.getElementById("refuge-count").textContent = refuges.length;
+    };
+
+    if (!window.L) {
+      document.getElementById("network-error").hidden = false;
+    } else {
+      initializeMap();
+    }
+  </script>
+</body>
+</html>
