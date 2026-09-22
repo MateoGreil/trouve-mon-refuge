@@ -21,7 +21,13 @@ const SOURCE_VALIDE = {
         coord: { alt: 1450, lat: 42.9, long: -0.07 },
         lien: "https://www.refuges.info/point/101/",
         etat: { valeur: "" },
-        info_comp: { cheminee: { valeur: "Oui" }, eau: { valeur: "Non" }, bois: { valeur: "Oui" } },
+        info_comp: {
+          cheminee: { valeur: "Oui" },
+          eau: { valeur: "Non" },
+          bois: { valeur: "Oui" },
+          manque_un_mur: { valeur: "Non" },
+          places_matelas: { valeur: 2 },
+        },
       },
     },
     {
@@ -31,6 +37,20 @@ const SOURCE_VALIDE = {
         places: { valeur: null },
         coord: { alt: 2000, lat: 42.8, long: 0.5 },
         etat: { valeur: "Fermée" },
+      },
+    },
+    {
+      properties: {
+        id: 103,
+        nom: "Abri ouvert d'un côté",
+        type: { valeur: "Abri" },
+        places: { valeur: 6 },
+        coord: { alt: 1800, lat: 42.7, long: 0.6 },
+        etat: { valeur: "" },
+        info_comp: {
+          manque_un_mur: { valeur: "Oui" },
+          places_matelas: { valeur: "*Inconnu*" },
+        },
       },
     },
   ],
@@ -64,7 +84,7 @@ test("crée le snapshot absent depuis une source valide", async () => {
 
   const snapshot = JSON.parse(readFileSync(join(dossier, "refuges.json"), "utf8"));
   assert.ok(!Number.isNaN(Date.parse(snapshot.updatedAt)), "updatedAt doit être une date ISO");
-  assert.equal(snapshot.refuges.length, 2);
+  assert.equal(snapshot.refuges.length, 3);
 
   const cabane = snapshot.refuges[0];
   assert.equal(cabane.id, 101);
@@ -79,11 +99,19 @@ test("crée le snapshot absent depuis une source valide", async () => {
   assert.equal(cabane.chimney, true);
   assert.equal(cabane.water, false);
   assert.equal(cabane.forest, true);
+  assert.equal(cabane.walls, "complet");
+  assert.equal(cabane.mattresses, 2);
 
   const ferme = snapshot.refuges[1];
   assert.equal(ferme.closed, "Fermée");
   assert.equal(ferme.capacity, null);
   assert.equal(ferme.chimney, false);
+  assert.equal(ferme.walls, null);
+  assert.equal(ferme.mattresses, null);
+
+  const abri = snapshot.refuges[2];
+  assert.equal(abri.walls, "manque un mur");
+  assert.equal(abri.mattresses, null);
 
   const restants = readdirSync(dossier).filter((f) => f !== "source.json" && f !== "refuges.json");
   assert.deepEqual(restants, [], "aucun fichier temporaire ne doit rester");

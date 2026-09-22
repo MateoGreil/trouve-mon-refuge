@@ -7,6 +7,12 @@ test("sélectionne par défaut les refuges de 6 places ou plus", () => {
   assert.match(html, /<input type="number" id="crit-places" min="0" value="6"> ou plus/);
 });
 
+test("laisse 4 murs décoché et le seuil matelas à zéro par défaut", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.doesNotMatch(html, /<input type="checkbox" id="crit-murs" checked>/);
+  assert.match(html, /<input type="number" id="crit-matelas" min="0" value="0"> ou plus/);
+});
+
 test("déclare un favicon SVG local", () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   assert.match(html, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/);
@@ -38,13 +44,14 @@ const element = (surcharge = {}) => ({
   ...surcharge,
 });
 
-const chargerPage = async ({ reponseFetch, vue = () => true }) => {
+const chargerPage = async ({ reponseFetch, vue = () => true, surcharges = {} }) => {
   const ids = [
     "crit-ouvert", "crit-cheminee", "crit-eau", "crit-foret", "crit-places",
+    "crit-murs", "crit-matelas",
     "criteres", "refuge-count", "fetch-time", "network-error", "api-error",
     "stale-warning", "map",
   ];
-  const elements = Object.fromEntries(ids.map((id) => [id, element()]));
+  const elements = Object.fromEntries(ids.map((id) => [id, element(surcharges[id])]));
 
   const couche = {
     couches: [],
@@ -66,7 +73,7 @@ const chargerPage = async ({ reponseFetch, vue = () => true }) => {
       const marqueur = {
         coordonnees,
         bindTooltip() { return marqueur; },
-        bindPopup() { return marqueur; },
+        bindPopup(html) { marqueur.popup = html; return marqueur; },
         addTo(c) { c.addLayer(marqueur); return marqueur; },
       };
       return marqueur;
@@ -105,6 +112,8 @@ const refuge = (surcharge = {}) => ({
   chimney: true,
   water: true,
   forest: true,
+  walls: "complet",
+  mattresses: 8,
   ...surcharge,
 });
 
@@ -154,6 +163,61 @@ test("applique le filtre places sur capacity", async () => {
     reponseFetch: snapshot([refuge({ id: 1, capacity: 8 }), refuge({ id: 2, capacity: 4 })]),
   });
   assert.equal(elements["refuge-count"].textContent, "1 refuge.");
+});
+
+test("applique le filtre 4 murs en excluant les murs confirmés manquants", async () => {
+  const { elements } = await chargerPage({
+    reponseFetch: snapshot([refuge({ id: 1 }), refuge({ id: 2, walls: "manque un mur" })]),
+  });
+  assert.equal(elements["refuge-count"].textContent, "1 refuge.");
+});
+
+test("inclut les refuges au statut mural inconnu quand 4 murs est coché", async () => {
+  const { elements } = await chargerPage({
+    reponseFetch: snapshot([refuge({ id: 1, walls: null })]),
+  });
+  assert.equal(elements["refuge-count"].textContent, "1 refuge.");
+});
+
+test("ignore les murs manquants quand 4 murs est décoché", async () => {
+  const { elements } = await chargerPage({
+    reponseFetch: snapshot([refuge({ id: 1, walls: "manque un mur" })]),
+    surcharges: { "crit-murs": { checked: false } },
+  });
+  assert.equal(elements["refuge-count"].textContent, "1 refuge.");
+});
+
+test("applique le filtre places sur matelas", async () => {
+  const { elements } = await chargerPage({
+    reponseFetch: snapshot([refuge({ id: 1, mattresses: 8 }), refuge({ id: 2, mattresses: 3 })]),
+  });
+  assert.equal(elements["refuge-count"].textContent, "1 refuge.");
+});
+
+test("traite un nombre de matelas inconnu comme zéro", async () => {
+  const { elements } = await chargerPage({
+    reponseFetch: snapshot([refuge({ id: 1, mattresses: null })]),
+  });
+  assert.equal(elements["refuge-count"].textContent, "0 refuge — déplacez ou zoomez la carte.");
+});
+
+test("affiche matelas et murs dans la popup", async () => {
+  const sansFiltre = { "crit-murs": { checked: false }, "crit-matelas": { value: "0" } };
+  const { couche } = await chargerPage({
+    reponseFetch: snapshot([refuge({ id: 1, mattresses: 2, walls: "manque un mur" })]),
+    surcharges: sansFiltre,
+  });
+  const popup = couche.couches[0].popup;
+  assert.match(popup, /<td>Matelas :<\/td><td>2<\/td>/);
+  assert.match(popup, /<td>Murs :<\/td><td>manque un mur<\/td>/);
+
+  const { couche: coucheInconnu } = await chargerPage({
+    reponseFetch: snapshot([refuge({ id: 2, mattresses: null, walls: null })]),
+    surcharges: sansFiltre,
+  });
+  const popupInconnu = coucheInconnu.couches[0].popup;
+  assert.match(popupInconnu, /<td>Matelas :<\/td><td>inconnu<\/td>/);
+  assert.match(popupInconnu, /<td>Murs :<\/td><td>inconnu<\/td>/);
 });
 
 test("affiche la date du snapshot, sans avertissement si récent", async () => {

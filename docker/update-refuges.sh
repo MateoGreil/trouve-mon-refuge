@@ -43,7 +43,9 @@ jq -c '{
     closed: (.etat.valeur // ""),
     chimney: (.info_comp.cheminee.valeur == "Oui" or .info_comp.poele.valeur == "Oui"),
     water: (.info_comp.eau.valeur == "Oui"),
-    forest: (.info_comp.bois.valeur == "Oui")
+    forest: (.info_comp.bois.valeur == "Oui"),
+    walls: (if .info_comp.manque_un_mur.valeur == "Oui" then "manque un mur" elif .info_comp.manque_un_mur.valeur == "Non" then "complet" else null end),
+    mattresses: ((.info_comp.places_matelas.valeur | numbers) // null)
   }]
 }' "$SOURCE_TMP" > "$COMPACT_TMP"
 
