@@ -97,6 +97,8 @@
     const URL_ICONES = "https://www.refuges.info/images/icones/";
     const TAILLE_ICONE = [24, 24];
     const ANCRE_ICONE = [12, 24];
+    const ANCRE_INFOBULLE = [12, -12];
+    const ANCRE_FICHE = [0, -24];
     const ICONE_PAR_DEFAUT = "cabane";
 
     const iconesEnEchec = new Set();
@@ -111,6 +113,8 @@
           iconUrl: `${URL_ICONES}${icone}.svg`,
           iconSize: TAILLE_ICONE,
           iconAnchor: ANCRE_ICONE,
+          tooltipAnchor: ANCRE_INFOBULLE,
+          popupAnchor: ANCRE_FICHE,
         }));
       }
       return iconesConnues.get(icone);

@@ -271,6 +271,8 @@ test("affiche chaque refuge avec son icône refuges.info", async () => {
   assert.equal(icone.iconUrl, "https://www.refuges.info/images/icones/cabane_green_eau.svg");
   assert.deepEqual(icone.iconSize, [24, 24]);
   assert.deepEqual(icone.iconAnchor, [12, 24]);
+  assert.deepEqual(icone.tooltipAnchor, [12, -12]);
+  assert.deepEqual(icone.popupAnchor, [0, -24]);
 });
 
 test("réutilise la même icône pour les refuges de même type", async () => {
