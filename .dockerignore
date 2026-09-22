@@ -2,3 +2,5 @@ Dockerfile
 .dockerignore
 README.md
 .forgejo/
+.worktrees/
+tests/
