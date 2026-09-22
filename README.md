@@ -16,3 +16,7 @@ docker run --rm -p 8080:80 trouve-mon-refuge
 ```
 
 Puis ouvrir <http://localhost:8080>.
+
+## Tests
+
+Lancés par la CI (Forgejo Actions) ; en local : `node --test tests/page.test.mjs tests/update-refuges.test.mjs`.
