@@ -21,7 +21,7 @@
   <p><b>Critères :</b></p>
   <form id="criteres">
     <input type="checkbox" id="crit-ouvert" checked> <label for="crit-ouvert">refuge déclaré ouvert</label><br>
-    <input type="checkbox" id="crit-cheminee" checked> <label for="crit-cheminee">cheminée présente</label><br>
+    <input type="checkbox" id="crit-cheminee" checked> <label for="crit-cheminee">Poêle ou cheminée</label><br>
     <input type="checkbox" id="crit-eau" checked> <label for="crit-eau">eau à moins de 100 mètres</label><br>
     <input type="checkbox" id="crit-foret" checked> <label for="crit-foret">forêt à moins de 100 mètres</label><br>
     <label for="crit-places">places :</label> <input type="number" id="crit-places" min="0" value="8"> ou plus
@@ -71,7 +71,7 @@
 
     const repondAuxCriteres = (point, criteres) =>
       (!criteres.ouvert || !point.etat?.valeur) &&
-      (!criteres.cheminee || point.info_comp?.cheminee?.valeur === "Oui") &&
+      (!criteres.cheminee || point.info_comp?.cheminee?.valeur === "Oui" || point.info_comp?.poele?.valeur === "Oui") &&
       (!criteres.eau || point.info_comp?.eau?.valeur === "Oui") &&
       (!criteres.foret || point.info_comp?.bois?.valeur === "Oui") &&
       (point.places?.valeur ?? 0) >= criteres.places;
