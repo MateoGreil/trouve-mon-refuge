@@ -28,14 +28,14 @@
   </form>
 
   <p>
-    [ <a href="https://www.refuges.info/api/bbox?bbox=world&amp;types_point=7%2C9%2C10&amp;nb_points=all&amp;detail=complet&amp;format=geojson&amp;format_texte=texte&amp;cache=3600" target="_blank" rel="noopener noreferrer">DONNÉES JSON</a> ]
+    [ <a href="/data/refuges.json" target="_blank" rel="noopener noreferrer">DONNÉES JSON</a> ]
     [ <a href="https://www.refuges.info/api/doc/" target="_blank" rel="noopener noreferrer">DOCUMENTATION API</a> ]
   </p>
 
   <hr>
 
   <p id="network-error" hidden><b>ERREUR :</b> la bibliothèque ou le fond de carte ne peut pas être chargé. Vérifiez la connexion Internet.</p>
-  <p id="api-error" hidden><b>ERREUR :</b> les données de Refuges.info n'ont pas pu être récupérées. Vérifiez la connexion Internet, puis <a href="">réessayez</a>.</p>
+  <p id="api-error" hidden><b>ERREUR :</b> le snapshot des refuges n'a pas pu être récupéré. Vérifiez la connexion Internet, puis <a href="">réessayez</a>.</p>
 
   <div id="map" style="height: 70vh; min-height: 400px;"></div>
 
@@ -48,11 +48,13 @@
     La présence d'une cheminée ne garantit pas son bon fonctionnement.
     Vérifiez la fiche et les commentaires récents avant de partir.
   </p>
-  <p><small>Données en direct de Refuges.info — récupérées le <span id="fetch-time">…</span>. Fond de carte OpenTopoMap.</small></p>
+  <p><small>Données Refuges.info — snapshot récupéré le <span id="fetch-time">…</span>. Fond de carte OpenTopoMap.</small></p>
+  <p id="stale-warning" hidden><b>ATTENTION :</b> données potentiellement périmées — la dernière mise à jour date de plus de 14 jours.</p>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script>
-    const API_URL = "https://www.refuges.info/api/bbox?bbox=world&types_point=7%2C9%2C10&nb_points=all&detail=complet&format=geojson&format_texte=texte&cache=3600";
+    const DATA_URL = "/data/refuges.json";
+    const SEUIL_PEREMPTION_MS = 14 * 24 * 60 * 60 * 1000;
 
     const escapeHtml = (value) => String(value)
       .replaceAll("&", "&amp;")
@@ -69,23 +71,12 @@
       places: Number(document.getElementById("crit-places").value) || 0
     });
 
-    const repondAuxCriteres = (point, criteres) =>
-      (!criteres.ouvert || !point.etat?.valeur) &&
-      (!criteres.cheminee || point.info_comp?.cheminee?.valeur === "Oui" || point.info_comp?.poele?.valeur === "Oui") &&
-      (!criteres.eau || point.info_comp?.eau?.valeur === "Oui") &&
-      (!criteres.foret || point.info_comp?.bois?.valeur === "Oui") &&
-      (point.places?.valeur ?? 0) >= criteres.places;
-
-    const enRefuge = (point) => ({
-      id: point.id,
-      name: point.nom,
-      type: point.type?.valeur,
-      capacity: point.places?.valeur,
-      altitude: point.coord?.alt,
-      latitude: point.coord?.lat,
-      longitude: point.coord?.long,
-      url: point.lien
-    });
+    const repondAuxCriteres = (refuge, criteres) =>
+      (!criteres.ouvert || !refuge.closed) &&
+      (!criteres.cheminee || refuge.chimney) &&
+      (!criteres.eau || refuge.water) &&
+      (!criteres.foret || refuge.forest) &&
+      (refuge.capacity ?? 0) >= criteres.places;
 
     const initializeMap = () => {
       const map = L.map("map").setView([42.9, -0.07], 8);
@@ -103,17 +94,16 @@
 
     const NB_MAX_MARQUEURS = 1000;
 
-    const pointDansLaVue = (point, bornes) =>
-      point.coord?.lat != null &&
-      point.coord?.long != null &&
-      bornes.contains([point.coord.lat, point.coord.long]);
+    const refugeDansLaVue = (refuge, bornes) =>
+      refuge.latitude != null &&
+      refuge.longitude != null &&
+      bornes.contains([refuge.latitude, refuge.longitude]);
 
-    const majResultats = (map, couche, points) => {
+    const majResultats = (map, couche, tous) => {
       const criteres = lireCriteres();
       const bornes = map.getBounds();
-      const refuges = points
-        .filter((point) => repondAuxCriteres(point, criteres) && pointDansLaVue(point, bornes))
-        .map(enRefuge);
+      const refuges = tous
+        .filter((refuge) => repondAuxCriteres(refuge, criteres) && refugeDansLaVue(refuge, bornes));
 
       couche.clearLayers();
       let compteur = `${refuges.length} refuge${refuges.length > 1 ? "s" : ""}.`;
@@ -145,18 +135,21 @@
     const chargerRefuges = async (map) => {
       const couche = L.layerGroup().addTo(map);
       try {
-        const reponse = await fetch(API_URL);
+        const reponse = await fetch(DATA_URL);
         if (!reponse.ok) {
           throw new Error(reponse.status);
         }
         const donnees = await reponse.json();
-        const points = donnees.features.map((feature) => feature.properties);
-        const maj = () => majResultats(map, couche, points);
+        const maj = () => majResultats(map, couche, donnees.refuges);
         document.getElementById("criteres").addEventListener("input", maj);
         map.on("moveend", maj);
         maj();
+        const dateSnapshot = new Date(donnees.updatedAt);
         document.getElementById("fetch-time").textContent =
-          new Date().toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" });
+          dateSnapshot.toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" });
+        if (Date.now() - dateSnapshot.getTime() > SEUIL_PEREMPTION_MS) {
+          document.getElementById("stale-warning").hidden = false;
+        }
       } catch {
         document.getElementById("api-error").hidden = false;
         document.getElementById("criteres").disabled = true;

@@ -41,7 +41,7 @@ jq -c '{
     longitude: .coord.long,
     url: .lien,
     closed: (.etat.valeur // ""),
-    chimney: (.info_comp.cheminee.valeur == "Oui"),
+    chimney: (.info_comp.cheminee.valeur == "Oui" or .info_comp.poele.valeur == "Oui"),
     water: (.info_comp.eau.valeur == "Oui"),
     forest: (.info_comp.bois.valeur == "Oui")
   }]
