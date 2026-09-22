@@ -13,6 +13,14 @@ test("laisse 4 murs décoché et le seuil matelas à zéro par défaut", () => {
   assert.match(html, /<input type="number" id="crit-matelas" min="0" value="0"> ou plus/);
 });
 
+test("supprime la section AVERTISSEMENT, sans la ligne source ni l'encart de péremption", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.doesNotMatch(html, /<h2>AVERTISSEMENT<\/h2>/);
+  assert.doesNotMatch(html, /« Bois » signifie/);
+  assert.match(html, /<span id="fetch-time">…<\/span>/);
+  assert.match(html, /<p id="stale-warning" hidden>/);
+});
+
 test("déclare un favicon SVG local", () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   assert.match(html, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/);
