@@ -26,7 +26,8 @@
     <input type="checkbox" id="crit-foret" checked> <label for="crit-foret">forêt à moins de 100 mètres</label><br>
     <input type="checkbox" id="crit-murs" checked> <label for="crit-murs">4 murs (pas de mur manquant)</label><br>
     <label for="crit-places">places :</label> <input type="number" id="crit-places" min="0" value="6"> ou plus<br>
-    <label for="crit-matelas">places sur matelas :</label> <input type="number" id="crit-matelas" min="0" value="0"> ou plus
+    <label for="crit-matelas">places sur matelas :</label> <input type="number" id="crit-matelas" min="0" value="0"> ou plus<br>
+    <input type="checkbox" id="crit-pins-classiques"> <label for="crit-pins-classiques">pins bleus classiques (sans icônes refuges.info)</label>
   </form>
 
   <p>
@@ -130,6 +131,7 @@
 
     const majResultats = (map, couche, tous) => {
       const criteres = lireCriteres();
+      const pinsClassiques = document.getElementById("crit-pins-classiques").checked;
       const bornes = map.getBounds();
       const refuges = tous
         .filter((refuge) => repondAuxCriteres(refuge, criteres) && refugeDansLaVue(refuge, bornes));
@@ -143,7 +145,7 @@
       } else {
         refuges.forEach((refuge) => {
           const icone = refuge.icone ?? ICONE_PAR_DEFAUT;
-          const iconeRefugesInfo = iconeDe(icone);
+          const iconeRefugesInfo = pinsClassiques ? null : iconeDe(icone);
           const marker = L.marker(
             [refuge.latitude, refuge.longitude],
             iconeRefugesInfo ? { icon: iconeRefugesInfo } : {},

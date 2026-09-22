@@ -60,11 +60,12 @@ const element = (surcharge = {}) => ({
 const chargerPage = async ({ reponseFetch, vue = () => true, surcharges = {} }) => {
   const ids = [
     "crit-ouvert", "crit-cheminee", "crit-eau", "crit-foret", "crit-places",
-    "crit-murs", "crit-matelas",
+    "crit-murs", "crit-matelas", "crit-pins-classiques",
     "criteres", "refuge-count", "fetch-time", "network-error", "api-error",
     "stale-warning", "map",
   ];
   const elements = Object.fromEntries(ids.map((id) => [id, element(surcharges[id])]));
+  elements["crit-pins-classiques"] = element({ checked: false, ...surcharges["crit-pins-classiques"] });
 
   const couche = {
     couches: [],
@@ -302,4 +303,32 @@ test("utilise l'icône cabane quand le snapshot n'a pas d'icone", async () => {
     reponseFetch: snapshot([refuge({ id: 1, icone: undefined })]),
   });
   assert.equal(couche.couches[0].options.icon.iconUrl, "https://www.refuges.info/images/icones/cabane.svg");
+});
+
+test("affiche les icônes refuges.info par défaut, sans pins classiques cochés", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(html, /<input type="checkbox" id="crit-pins-classiques">/);
+});
+
+test("affiche les pins bleus classiques quand la case est cochée", async () => {
+  const { couche } = await chargerPage({
+    reponseFetch: snapshot([refuge({ id: 1 })]),
+    surcharges: { "crit-pins-classiques": { checked: true } },
+  });
+  assert.equal(couche.couches[0].options.icon, undefined);
+});
+
+test("redessine les marqueurs au changement de la case pins classiques", async () => {
+  const { elements, couche } = await chargerPage({
+    reponseFetch: snapshot([refuge({ id: 1 })]),
+  });
+  assert.ok(couche.couches[0].options.icon.__iconeRefugesInfo);
+
+  elements["crit-pins-classiques"].checked = true;
+  elements.criteres.listeners.input();
+  assert.equal(couche.couches[0].options.icon, undefined);
+
+  elements["crit-pins-classiques"].checked = false;
+  elements.criteres.listeners.input();
+  assert.ok(couche.couches[0].options.icon.__iconeRefugesInfo);
 });
