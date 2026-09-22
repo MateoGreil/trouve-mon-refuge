@@ -2,6 +2,11 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+test("sélectionne par défaut les refuges de 6 places ou plus", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(html, /<input type="number" id="crit-places" min="0" value="6"> ou plus/);
+});
+
 test("déclare un favicon SVG local", () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   assert.match(html, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/);
