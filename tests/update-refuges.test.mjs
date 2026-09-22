@@ -101,6 +101,14 @@ test("ne touche pas un snapshot plus récent que l'âge maximal", async () => {
   );
 });
 
+test("rafraîchit un snapshot daté dans le futur", async () => {
+  const futur = '{"updatedAt":"2099-01-01T00:00:00Z","refuges":[{"sentinel":true}]}';
+  const dossier = preparer({ snapshotExistant: futur, source: JSON.stringify(SOURCE_VALIDE) });
+  await lancer(dossier, urlSource(dossier), "7");
+  const resultat = JSON.parse(readFileSync(join(dossier, "refuges.json"), "utf8"));
+  assert.equal(resultat.refuges[0].id, 101);
+});
+
 test("garde l'ancien snapshot si la source n'est pas du JSON valide", async () => {
   const ancien = '{"updatedAt":"2000-01-01T00:00:00Z","refuges":[{"ancien":true}]}';
   const dossier = preparer({ snapshotExistant: ancien, source: "<html>pas du json</html>" });

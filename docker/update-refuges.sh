@@ -13,7 +13,7 @@ est_recent() {
   [ -f "$SNAPSHOT" ] || return 1
   [ "$(
     jq -r --argjson jours "$MAX_AGE_DAYS" \
-      'try ((now - ((.updatedAt | sub("\\.[0-9]+Z$"; "Z")) | fromdateiso8601)) / 86400 < $jours) catch false' \
+      'try (((now - ((.updatedAt | sub("\\.[0-9]+Z$"; "Z")) | fromdateiso8601)) / 86400) as $age | $age >= 0 and $age < $jours) catch false' \
       "$SNAPSHOT" 2>/dev/null
   )" = "true" ]
 }

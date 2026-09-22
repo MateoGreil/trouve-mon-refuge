@@ -1,0 +1,28 @@
+name: trouve-mon-refuge
+
+services:
+  web:
+    build:
+      context: .
+      target: web
+    image: trouve-mon-refuge-web:local
+    ports:
+      - "${TMR_PORT:-8080}:80"
+    volumes:
+      - refuges-data:/usr/share/nginx/html/data:ro
+    restart: unless-stopped
+
+  updater:
+    build:
+      context: .
+      target: updater
+    image: trouve-mon-refuge-updater:local
+    environment:
+      TZ: UTC
+    volumes:
+      - refuges-data:/usr/share/nginx/html/data
+    restart: unless-stopped
+    stop_grace_period: 6m
+
+volumes:
+  refuges-data:
