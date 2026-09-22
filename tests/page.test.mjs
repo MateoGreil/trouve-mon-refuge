@@ -7,9 +7,9 @@ test("sélectionne par défaut les refuges de 6 places ou plus", () => {
   assert.match(html, /<input type="number" id="crit-places" min="0" value="6"> ou plus/);
 });
 
-test("laisse 4 murs décoché et le seuil matelas à zéro par défaut", () => {
+test("coche 4 murs et laisse le seuil matelas à zéro par défaut", () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-  assert.doesNotMatch(html, /<input type="checkbox" id="crit-murs" checked>/);
+  assert.match(html, /<input type="checkbox" id="crit-murs" checked>/);
   assert.match(html, /<input type="number" id="crit-matelas" min="0" value="0"> ou plus/);
 });
 
