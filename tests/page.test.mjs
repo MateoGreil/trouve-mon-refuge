@@ -21,6 +21,11 @@ test("supprime la section AVERTISSEMENT, sans la ligne source ni l'encart de pé
   assert.match(html, /<p id="stale-warning" hidden>/);
 });
 
+test("supprime la ligne de tirets du bandeau", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.doesNotMatch(html, / -{10,}$/m);
+});
+
 test("déclare un favicon SVG local", () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   assert.match(html, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/);
