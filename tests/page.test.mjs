@@ -2,6 +2,17 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+test("déclare un favicon SVG local", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(html, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/);
+
+  const favicon = readFileSync(new URL("../favicon.svg", import.meta.url), "utf8");
+  assert.match(favicon, /^<svg[\s\S]*<\/svg>\n?$/);
+
+  const dockerfile = readFileSync(new URL("../Dockerfile", import.meta.url), "utf8");
+  assert.match(dockerfile, /^COPY favicon\.svg \/usr\/share\/nginx\/html\/favicon\.svg$/m);
+});
+
 const lireScript = () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const extrait = html.match(/<script>\n([\s\S]*)\n  <\/script>/);
