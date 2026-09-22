@@ -18,14 +18,14 @@
 
   <p><b>Résultats :</b> <span id="refuge-count">…</span> refuges.</p>
 
-  <p><b>Critères appliqués :</b></p>
-  <ul>
-    <li>refuge déclaré ouvert ;</li>
-    <li>8 places ou plus ;</li>
-    <li>cheminée présente ;</li>
-    <li>eau à moins de 100 mètres ;</li>
-    <li>forêt à moins de 100 mètres.</li>
-  </ul>
+  <p><b>Critères :</b></p>
+  <form id="criteres">
+    <input type="checkbox" id="crit-ouvert" checked> <label for="crit-ouvert">refuge déclaré ouvert</label><br>
+    <input type="checkbox" id="crit-cheminee" checked> <label for="crit-cheminee">cheminée présente</label><br>
+    <input type="checkbox" id="crit-eau" checked> <label for="crit-eau">eau à moins de 100 mètres</label><br>
+    <input type="checkbox" id="crit-foret" checked> <label for="crit-foret">forêt à moins de 100 mètres</label><br>
+    <label for="crit-places">places :</label> <input type="number" id="crit-places" min="0" value="8"> ou plus
+  </form>
 
   <p>
     [ <a href="https://www.refuges.info/api/bbox?bbox=-1.67%2C42.40%2C1.53%2C43.45&amp;types_point=7%2C9%2C10&amp;nb_points=all&amp;detail=complet&amp;format=geojson&amp;format_texte=texte&amp;cache=3600" target="_blank" rel="noopener noreferrer">DONNÉES JSON</a> ]
@@ -61,12 +61,20 @@
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
 
-    const repondAuxCriteres = (point) =>
-      !point.etat?.valeur &&
-      (point.places?.valeur ?? 0) >= 8 &&
-      point.info_comp?.cheminee?.valeur === "Oui" &&
-      point.info_comp?.eau?.valeur === "Oui" &&
-      point.info_comp?.bois?.valeur === "Oui";
+    const lireCriteres = () => ({
+      ouvert: document.getElementById("crit-ouvert").checked,
+      cheminee: document.getElementById("crit-cheminee").checked,
+      eau: document.getElementById("crit-eau").checked,
+      foret: document.getElementById("crit-foret").checked,
+      places: Number(document.getElementById("crit-places").value) || 0
+    });
+
+    const repondAuxCriteres = (point, criteres) =>
+      (!criteres.ouvert || !point.etat?.valeur) &&
+      (!criteres.cheminee || point.info_comp?.cheminee?.valeur === "Oui") &&
+      (!criteres.eau || point.info_comp?.eau?.valeur === "Oui") &&
+      (!criteres.foret || point.info_comp?.bois?.valeur === "Oui") &&
+      (point.places?.valeur ?? 0) >= criteres.places;
 
     const enRefuge = (point) => ({
       id: point.id,
@@ -93,7 +101,8 @@
       return map;
     };
 
-    const afficherRefuges = (map, refuges) => {
+    const afficherRefuges = (map, couche, refuges) => {
+      couche.clearLayers();
       const markers = refuges.map((refuge) => {
         const marker = L.marker([refuge.latitude, refuge.longitude]);
         marker.bindTooltip(escapeHtml(refuge.name));
@@ -108,7 +117,7 @@
           </table>
           <a href="${escapeHtml(refuge.url)}" target="_blank" rel="noopener noreferrer">Voir la fiche Refuges.info</a>
         `);
-        marker.addTo(map);
+        marker.addTo(couche);
         return marker;
       });
 
@@ -122,21 +131,27 @@
     };
 
     const chargerRefuges = async (map) => {
+      const couche = L.layerGroup().addTo(map);
       try {
         const reponse = await fetch(API_URL);
         if (!reponse.ok) {
           throw new Error(reponse.status);
         }
         const donnees = await reponse.json();
-        const refuges = donnees.features
-          .map((feature) => feature.properties)
-          .filter(repondAuxCriteres)
-          .map(enRefuge);
-        afficherRefuges(map, refuges);
+        const points = donnees.features.map((feature) => feature.properties);
+        const appliquerCriteres = () => {
+          const criteres = lireCriteres();
+          afficherRefuges(map, couche, points
+            .filter((point) => repondAuxCriteres(point, criteres))
+            .map(enRefuge));
+        };
+        document.getElementById("criteres").addEventListener("input", appliquerCriteres);
+        appliquerCriteres();
         document.getElementById("fetch-time").textContent =
           new Date().toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" });
       } catch {
         document.getElementById("api-error").hidden = false;
+        document.getElementById("criteres").disabled = true;
       }
     };
 
