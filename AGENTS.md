@@ -2,7 +2,7 @@
 
 Static single-page site mapping unstaffed mountain shelters in the Pyrénées,
 from a refuges.info data snapshot embedded in the page. Live at
-<https://trouve-mon-refuge.greil.fr>.
+<https://trouve-mon-refuge.liberateur.fr>.
 
 ## Working on this repo
 

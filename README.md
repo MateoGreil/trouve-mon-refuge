@@ -1,7 +1,7 @@
 # trouve-mon-refuge
 
 Carte des cabanes et refuges (données [refuges.info](https://www.refuges.info/)), publiée sur
-<https://trouve-mon-refuge.greil.fr>.
+<https://trouve-mon-refuge.liberateur.fr>.
 
 ## Lancer en local
 
