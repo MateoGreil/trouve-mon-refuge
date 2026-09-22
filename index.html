@@ -3,20 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Carte des refuges des Pyrénées</title>
+  <title>Carte des cabanes et refuges</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 </head>
 <body>
-  <h1>REFUGES DES PYRÉNÉES</h1>
+  <h1>CABANES ET REFUGES</h1>
 
   <pre>
 ============================================================
  CARTE DES CABANES ET REFUGES
- Saint-Jean-de-Luz -------------------------------- Andorre
+ ----------------------------------------------------------
 ============================================================
   </pre>
 
-  <p><b>Résultats :</b> <span id="refuge-count">…</span> refuges.</p>
+  <p><b>Résultats dans la vue :</b> <span id="refuge-count">chargement…</span></p>
 
   <p><b>Critères :</b></p>
   <form id="criteres">
@@ -28,7 +28,7 @@
   </form>
 
   <p>
-    [ <a href="https://www.refuges.info/api/bbox?bbox=-1.67%2C42.40%2C1.53%2C43.45&amp;types_point=7%2C9%2C10&amp;nb_points=all&amp;detail=complet&amp;format=geojson&amp;format_texte=texte&amp;cache=3600" target="_blank" rel="noopener noreferrer">DONNÉES JSON</a> ]
+    [ <a href="https://www.refuges.info/api/bbox?bbox=world&amp;types_point=7%2C9%2C10&amp;nb_points=all&amp;detail=complet&amp;format=geojson&amp;format_texte=texte&amp;cache=3600" target="_blank" rel="noopener noreferrer">DONNÉES JSON</a> ]
     [ <a href="https://www.refuges.info/api/doc/" target="_blank" rel="noopener noreferrer">DOCUMENTATION API</a> ]
   </p>
 
@@ -52,7 +52,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script>
-    const API_URL = "https://www.refuges.info/api/bbox?bbox=-1.67%2C42.40%2C1.53%2C43.45&types_point=7%2C9%2C10&nb_points=all&detail=complet&format=geojson&format_texte=texte&cache=3600";
+    const API_URL = "https://www.refuges.info/api/bbox?bbox=world&types_point=7%2C9%2C10&nb_points=all&detail=complet&format=geojson&format_texte=texte&cache=3600";
 
     const escapeHtml = (value) => String(value)
       .replaceAll("&", "&amp;")
@@ -88,7 +88,7 @@
     });
 
     const initializeMap = () => {
-      const map = L.map("map");
+      const map = L.map("map").setView([42.9, -0.07], 8);
       const tiles = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
         maxZoom: 17,
         attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
@@ -101,33 +101,45 @@
       return map;
     };
 
-    const afficherRefuges = (map, couche, refuges) => {
-      couche.clearLayers();
-      const markers = refuges.map((refuge) => {
-        const marker = L.marker([refuge.latitude, refuge.longitude]);
-        marker.bindTooltip(escapeHtml(refuge.name));
-        marker.bindPopup(`
-          <b>${escapeHtml(refuge.name)}</b><br>
-          <table border="0" cellpadding="2">
-            <tr><td>Places :</td><td><b>${refuge.capacity}</b></td></tr>
-            <tr><td>Altitude :</td><td>${escapeHtml(refuge.altitude)} m</td></tr>
-            <tr><td>Type :</td><td>${escapeHtml(refuge.type)}</td></tr>
-            <tr><td>Latitude :</td><td>${refuge.latitude.toFixed(5)}</td></tr>
-            <tr><td>Longitude :</td><td>${refuge.longitude.toFixed(5)}</td></tr>
-          </table>
-          <a href="${escapeHtml(refuge.url)}" target="_blank" rel="noopener noreferrer">Voir la fiche Refuges.info</a>
-        `);
-        marker.addTo(couche);
-        return marker;
-      });
+    const NB_MAX_MARQUEURS = 1000;
 
-      if (markers.length > 0) {
-        map.fitBounds(L.featureGroup(markers).getBounds(), {
-          padding: [20, 20],
-          maxZoom: 9
+    const pointDansLaVue = (point, bornes) =>
+      point.coord?.lat != null &&
+      point.coord?.long != null &&
+      bornes.contains([point.coord.lat, point.coord.long]);
+
+    const majResultats = (map, couche, points) => {
+      const criteres = lireCriteres();
+      const bornes = map.getBounds();
+      const refuges = points
+        .filter((point) => repondAuxCriteres(point, criteres) && pointDansLaVue(point, bornes))
+        .map(enRefuge);
+
+      couche.clearLayers();
+      let compteur = `${refuges.length} refuge${refuges.length > 1 ? "s" : ""}.`;
+      if (refuges.length === 0) {
+        compteur = "0 refuge — déplacez ou zoomez la carte.";
+      } else if (refuges.length > NB_MAX_MARQUEURS) {
+        compteur = `${refuges.length} refuges — zoomez pour les afficher.`;
+      } else {
+        refuges.forEach((refuge) => {
+          const marker = L.marker([refuge.latitude, refuge.longitude]);
+          marker.bindTooltip(escapeHtml(refuge.name));
+          marker.bindPopup(`
+            <b>${escapeHtml(refuge.name)}</b><br>
+            <table border="0" cellpadding="2">
+              <tr><td>Places :</td><td><b>${refuge.capacity}</b></td></tr>
+              <tr><td>Altitude :</td><td>${escapeHtml(refuge.altitude)} m</td></tr>
+              <tr><td>Type :</td><td>${escapeHtml(refuge.type)}</td></tr>
+              <tr><td>Latitude :</td><td>${refuge.latitude.toFixed(5)}</td></tr>
+              <tr><td>Longitude :</td><td>${refuge.longitude.toFixed(5)}</td></tr>
+            </table>
+            <a href="${escapeHtml(refuge.url)}" target="_blank" rel="noopener noreferrer">Voir la fiche Refuges.info</a>
+          `);
+          marker.addTo(couche);
         });
       }
-      document.getElementById("refuge-count").textContent = refuges.length;
+      document.getElementById("refuge-count").textContent = compteur;
     };
 
     const chargerRefuges = async (map) => {
@@ -139,14 +151,10 @@
         }
         const donnees = await reponse.json();
         const points = donnees.features.map((feature) => feature.properties);
-        const appliquerCriteres = () => {
-          const criteres = lireCriteres();
-          afficherRefuges(map, couche, points
-            .filter((point) => repondAuxCriteres(point, criteres))
-            .map(enRefuge));
-        };
-        document.getElementById("criteres").addEventListener("input", appliquerCriteres);
-        appliquerCriteres();
+        const maj = () => majResultats(map, couche, points);
+        document.getElementById("criteres").addEventListener("input", maj);
+        map.on("moveend", maj);
+        maj();
         document.getElementById("fetch-time").textContent =
           new Date().toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" });
       } catch {

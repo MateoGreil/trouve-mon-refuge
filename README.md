@@ -1,6 +1,6 @@
 # trouve-mon-refuge
 
-Carte des refuges des Pyrénées (données [refuges.info](https://www.refuges.info/)), publiée sur
+Carte des cabanes et refuges (données [refuges.info](https://www.refuges.info/)), publiée sur
 <https://trouve-mon-refuge.greil.fr>.
 
 ## Lancer en local
