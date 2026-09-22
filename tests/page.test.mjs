@@ -82,9 +82,18 @@ const chargerPage = async ({ reponseFetch, vue = () => true, surcharges = {} }) 
     map: () => carte,
     tileLayer: () => ({ on() {}, addTo() {} }),
     layerGroup: () => couche,
-    marker: (coordonnees) => {
+    icon: (options) => ({ __iconeRefugesInfo: true, ...options }),
+    Icon: { Default: function IconeParDefaut() { this.__defaut = true; } },
+    marker: (coordonnees, options = {}) => {
+      const image = {
+        ecouteurs: {},
+        addEventListener(evenement, rappel) { this.ecouteurs[evenement] = rappel; },
+      };
       const marqueur = {
         coordonnees,
+        options,
+        getElement: () => ({ querySelector: () => image }),
+        setIcon(nouvelleIcone) { marqueur.options.icon = nouvelleIcone; },
         bindTooltip() { return marqueur; },
         bindPopup(html) { marqueur.popup = html; return marqueur; },
         addTo(c) { c.addLayer(marqueur); return marqueur; },
@@ -127,6 +136,7 @@ const refuge = (surcharge = {}) => ({
   forest: true,
   walls: "complet",
   mattresses: 8,
+  icone: "cabane_feu_eau",
   ...surcharge,
 });
 
@@ -249,4 +259,47 @@ test("affiche l'erreur API si le snapshot est indisponible", async () => {
   const { elements } = await chargerPage({ reponseFetch: new Error("indisponible") });
   assert.equal(elements["api-error"].hidden, false);
   assert.equal(elements.criteres.disabled, true);
+});
+
+test("affiche chaque refuge avec son icône refuges.info", async () => {
+  const { couche } = await chargerPage({
+    reponseFetch: snapshot([refuge({ id: 1, icone: "cabane_green_eau" })]),
+  });
+  const icone = couche.couches[0].options.icon;
+  assert.ok(icone.__iconeRefugesInfo);
+  assert.equal(icone.iconUrl, "https://www.refuges.info/images/icones/cabane_green_eau.svg");
+  assert.deepEqual(icone.iconSize, [24, 24]);
+  assert.deepEqual(icone.iconAnchor, [12, 24]);
+});
+
+test("réutilise la même icône pour les refuges de même type", async () => {
+  const { couche } = await chargerPage({
+    reponseFetch: snapshot([
+      refuge({ id: 1, icone: "cabane_feu_eau" }),
+      refuge({ id: 2, name: "Cabane 2", icone: "cabane_feu_eau" }),
+      refuge({ id: 3, name: "Cabane 3", icone: "cabane_green_eau" }),
+    ]),
+  });
+  assert.equal(couche.couches[0].options.icon, couche.couches[1].options.icon);
+  assert.notEqual(couche.couches[0].options.icon, couche.couches[2].options.icon);
+});
+
+test("retombe sur le pin par défaut quand l'icône ne charge pas", async () => {
+  const { couche, carte } = await chargerPage({
+    reponseFetch: snapshot([refuge({ id: 1, icone: "cabane_introuvable" })]),
+  });
+  const marqueur = couche.couches[0];
+  marqueur.getElement().querySelector("img").ecouteurs.error();
+  assert.ok(marqueur.options.icon.__defaut, "le marqueur doit repasser sur le pin Leaflet par défaut");
+
+  carte.listeners.moveend();
+  const nouveauMarqueur = couche.couches[0];
+  assert.equal(nouveauMarqueur.options.icon, undefined, "l'icône en échec ne doit pas être retentée");
+});
+
+test("utilise l'icône cabane quand le snapshot n'a pas d'icone", async () => {
+  const { couche } = await chargerPage({
+    reponseFetch: snapshot([refuge({ id: 1, icone: undefined })]),
+  });
+  assert.equal(couche.couches[0].options.icon.iconUrl, "https://www.refuges.info/images/icones/cabane.svg");
 });

@@ -35,6 +35,7 @@ jq -c '{
     id,
     name: .nom,
     type: .type.valeur,
+    icone: (.type.icone // "cabane"),
     capacity: .places.valeur,
     altitude: .coord.alt,
     latitude: .coord.lat,

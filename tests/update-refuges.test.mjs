@@ -16,7 +16,7 @@ const SOURCE_VALIDE = {
       properties: {
         id: 101,
         nom: "Cabane de Couey",
-        type: { valeur: "Cabane non gardée" },
+        type: { valeur: "Cabane non gardée", icone: "cabane_feu_eau" },
         places: { valeur: 12 },
         coord: { alt: 1450, lat: 42.9, long: -0.07 },
         lien: "https://www.refuges.info/point/101/",
@@ -96,6 +96,7 @@ test("crée le snapshot absent depuis une source valide", async () => {
   assert.equal(cabane.longitude, -0.07);
   assert.equal(cabane.url, "https://www.refuges.info/point/101/");
   assert.equal(cabane.closed, "");
+  assert.equal(cabane.icone, "cabane_feu_eau");
   assert.equal(cabane.chimney, true);
   assert.equal(cabane.water, false);
   assert.equal(cabane.forest, true);
@@ -105,6 +106,7 @@ test("crée le snapshot absent depuis une source valide", async () => {
   const ferme = snapshot.refuges[1];
   assert.equal(ferme.closed, "Fermée");
   assert.equal(ferme.capacity, null);
+  assert.equal(ferme.icone, "cabane");
   assert.equal(ferme.chimney, false);
   assert.equal(ferme.walls, null);
   assert.equal(ferme.mattresses, null);
@@ -112,6 +114,7 @@ test("crée le snapshot absent depuis une source valide", async () => {
   const abri = snapshot.refuges[2];
   assert.equal(abri.walls, "manque un mur");
   assert.equal(abri.mattresses, null);
+  assert.equal(abri.icone, "cabane");
 
   const restants = readdirSync(dossier).filter((f) => f !== "source.json" && f !== "refuges.json");
   assert.deepEqual(restants, [], "aucun fichier temporaire ne doit rester");

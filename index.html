@@ -93,6 +93,36 @@
 
     const NB_MAX_MARQUEURS = 1000;
 
+    const URL_ICONES = "https://www.refuges.info/images/icones/";
+    const TAILLE_ICONE = [24, 24];
+    const ANCRE_ICONE = [12, 24];
+    const ICONE_PAR_DEFAUT = "cabane";
+
+    const iconesEnEchec = new Set();
+    const iconesConnues = new Map();
+
+    const iconeDe = (icone) => {
+      if (iconesEnEchec.has(icone)) {
+        return null;
+      }
+      if (!iconesConnues.has(icone)) {
+        iconesConnues.set(icone, L.icon({
+          iconUrl: `${URL_ICONES}${icone}.svg`,
+          iconSize: TAILLE_ICONE,
+          iconAnchor: ANCRE_ICONE,
+        }));
+      }
+      return iconesConnues.get(icone);
+    };
+
+    const retomberSurPinParDefaut = (marqueur, icone) => {
+      const image = marqueur.getElement?.().querySelector("img");
+      image?.addEventListener("error", () => {
+        iconesEnEchec.add(icone);
+        marqueur.setIcon(new L.Icon.Default());
+      });
+    };
+
     const refugeDansLaVue = (refuge, bornes) =>
       refuge.latitude != null &&
       refuge.longitude != null &&
@@ -112,7 +142,12 @@
         compteur = `${refuges.length} refuges — zoomez pour les afficher.`;
       } else {
         refuges.forEach((refuge) => {
-          const marker = L.marker([refuge.latitude, refuge.longitude]);
+          const icone = refuge.icone ?? ICONE_PAR_DEFAUT;
+          const iconeRefugesInfo = iconeDe(icone);
+          const marker = L.marker(
+            [refuge.latitude, refuge.longitude],
+            iconeRefugesInfo ? { icon: iconeRefugesInfo } : {},
+          );
           marker.bindTooltip(escapeHtml(refuge.name));
           marker.bindPopup(`
             <b>${escapeHtml(refuge.name)}</b><br>
@@ -128,6 +163,9 @@
             <a href="${escapeHtml(refuge.url)}" target="_blank" rel="noopener noreferrer">Voir la fiche Refuges.info</a>
           `);
           marker.addTo(couche);
+          if (iconeRefugesInfo) {
+            retomberSurPinParDefaut(marker, icone);
+          }
         });
       }
       document.getElementById("refuge-count").textContent = compteur;
