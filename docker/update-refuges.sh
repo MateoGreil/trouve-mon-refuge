@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-API_URL="${REFUGES_API_URL:-https://www.refuges.info/api/bbox?bbox=world&types_point=7%2C9%2C10&nb_points=all&detail=complet&format=geojson&format_texte=texte&cache=3600}"
+API_URL="${REFUGES_API_URL:-https://www.refuges.info/api/bbox?bbox=world&types_point=7%2C9%2C10%2C28%2C29&nb_points=all&detail=complet&format=geojson&format_texte=texte&cache=3600}"
 DATA_DIR="${REFUGES_DATA_DIR:-/usr/share/nginx/html/data}"
 MAX_AGE_DAYS="${REFUGES_MAX_AGE_DAYS:-7}"
 
@@ -31,7 +31,9 @@ curl -fsSL --max-time 300 "$API_URL" -o "$SOURCE_TMP"
 
 jq -c '{
   updatedAt: (now | todateiso8601),
-  refuges: [.features[].properties | {
+  refuges: [.features[].properties
+    | select(.type.id == 7 or .type.id == 9 or .type.id == 10 or .type.id == 28 or .type.id == 29)
+    | {
     id,
     name: .nom,
     type: .type.valeur,

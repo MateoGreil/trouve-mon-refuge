@@ -16,7 +16,7 @@ const SOURCE_VALIDE = {
       properties: {
         id: 101,
         nom: "Cabane de Couey",
-        type: { valeur: "Cabane non gardée", icone: "cabane_feu_eau" },
+        type: { id: 7, valeur: "Cabane non gardée", icone: "cabane_feu_eau" },
         places: { valeur: 12 },
         coord: { alt: 1450, lat: 42.9, long: -0.07 },
         lien: "https://www.refuges.info/point/101/",
@@ -34,6 +34,7 @@ const SOURCE_VALIDE = {
       properties: {
         id: 102,
         nom: "Refuge fermé",
+        type: { id: 10, valeur: "Refuge gardé" },
         places: { valeur: null },
         coord: { alt: 2000, lat: 42.8, long: 0.5 },
         etat: { valeur: "Fermée" },
@@ -43,7 +44,7 @@ const SOURCE_VALIDE = {
       properties: {
         id: 103,
         nom: "Abri ouvert d'un côté",
-        type: { valeur: "Abri" },
+        type: { id: 28, valeur: "Bâtiment à investiguer" },
         places: { valeur: 6 },
         coord: { alt: 1800, lat: 42.7, long: 0.6 },
         etat: { valeur: "" },
@@ -51,6 +52,22 @@ const SOURCE_VALIDE = {
           manque_un_mur: { valeur: "Oui" },
           places_matelas: { valeur: "*Inconnu*" },
         },
+      },
+    },
+    {
+      properties: {
+        id: 104,
+        nom: "Fontaine des Ayzacs",
+        type: { id: 23, valeur: "Point d'eau" },
+        coord: { alt: 1200, lat: 42.6, long: 0.5 },
+      },
+    },
+    {
+      properties: {
+        id: 105,
+        nom: "Brèche de Roland",
+        type: { id: 3, valeur: "Passage délicat" },
+        coord: { alt: 2600, lat: 42.7, long: -0.05 },
       },
     },
   ],
@@ -85,6 +102,11 @@ test("crée le snapshot absent depuis une source valide", async () => {
   const snapshot = JSON.parse(readFileSync(join(dossier, "refuges.json"), "utf8"));
   assert.ok(!Number.isNaN(Date.parse(snapshot.updatedAt)), "updatedAt doit être une date ISO");
   assert.equal(snapshot.refuges.length, 3);
+  assert.deepEqual(
+    snapshot.refuges.map((refuge) => refuge.name),
+    ["Cabane de Couey", "Refuge fermé", "Abri ouvert d'un côté"],
+    "les points d'eau et passages délicats ne doivent pas entrer dans le snapshot",
+  );
 
   const cabane = snapshot.refuges[0];
   assert.equal(cabane.id, 101);
@@ -118,6 +140,41 @@ test("crée le snapshot absent depuis une source valide", async () => {
 
   const restants = readdirSync(dossier).filter((f) => f !== "source.json" && f !== "refuges.json");
   assert.deepEqual(restants, [], "aucun fichier temporaire ne doit rester");
+});
+
+const sourceParType = (types) => JSON.stringify({
+  type: "FeatureCollection",
+  features: types.map(({ id, valeur }) => ({
+    properties: {
+      id: 200 + id,
+      nom: `Point ${id}`,
+      type: { id, valeur },
+      coord: { alt: 1000, lat: 42.5, long: 0.5 },
+    },
+  })),
+});
+
+test("ne garde que les types d'hébergement dans le snapshot", async () => {
+  const dossier = preparer({
+    source: sourceParType([
+      { id: 3, valeur: "Passage délicat" },
+      { id: 7, valeur: "Cabane non gardée" },
+      { id: 9, valeur: "Gîte d'étape" },
+      { id: 10, valeur: "Refuge gardé" },
+      { id: 23, valeur: "Point d'eau" },
+      { id: 28, valeur: "Bâtiment à investiguer" },
+      { id: 29, valeur: "Grotte" },
+      { id: 99, valeur: "Type inconnu" },
+    ]),
+  });
+  await lancer(dossier, urlSource(dossier));
+
+  const snapshot = JSON.parse(readFileSync(join(dossier, "refuges.json"), "utf8"));
+  assert.deepEqual(
+    snapshot.refuges.map((refuge) => refuge.id),
+    [207, 209, 210, 228, 229],
+    "seuls cabanes, gîtes, refuges gardés, bâtiments à investiguer et grottes doivent être gardés",
+  );
 });
 
 test("ne touche pas un snapshot plus récent que l'âge maximal", async () => {
