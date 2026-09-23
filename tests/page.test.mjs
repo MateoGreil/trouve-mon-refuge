@@ -62,7 +62,7 @@ const chargerPage = async ({ reponseFetch, vue = () => true, surcharges = {} }) 
     "crit-ouvert", "crit-cheminee", "crit-eau", "crit-foret", "crit-places",
     "crit-murs", "crit-matelas", "crit-pins-classiques",
     "criteres", "refuge-count", "fetch-time", "network-error", "api-error",
-    "stale-warning", "map",
+    "stale-warning", "map", "gpx-file", "gpx-list", "gpx-clear", "gpx-error",
   ];
   const elements = Object.fromEntries(ids.map((id) => [id, element(surcharges[id])]));
   elements["crit-pins-classiques"] = element({ checked: false, ...surcharges["crit-pins-classiques"] });

@@ -40,6 +40,13 @@
   <p id="network-error" hidden><b>ERREUR :</b> la bibliothèque ou le fond de carte ne peut pas être chargé. Vérifiez la connexion Internet.</p>
   <p id="api-error" hidden><b>ERREUR :</b> le snapshot des refuges n'a pas pu être récupéré. Vérifiez la connexion Internet, puis <a href="">réessayez</a>.</p>
 
+  <p>
+    <label for="gpx-file">Ajouter un GPX :</label> <input id="gpx-file" type="file" accept=".gpx,application/gpx+xml">
+    <button type="button" id="gpx-clear" hidden>Tout retirer</button>
+  </p>
+  <p id="gpx-error" role="alert" hidden>Impossible de lire ce GPX ou aucun parcours valide trouvé.</p>
+  <ul id="gpx-list"></ul>
+
   <div id="map" style="height: 70vh; min-height: 400px;"></div>
 
   <hr>
@@ -201,10 +208,82 @@
       }
     };
 
+    const lireParcoursGpx = (texte) => {
+      const xml = new DOMParser().parseFromString(texte, "application/xml");
+      if (xml.documentElement.localName !== "gpx" || xml.getElementsByTagName("parsererror").length) {
+        throw new Error("GPX invalide");
+      }
+      const pointsDe = (conteneur, nom) =>
+        Array.from(conteneur.getElementsByTagNameNS("*", nom), (point) => {
+          const lat = Number(point.getAttribute("lat"));
+          const lon = Number(point.getAttribute("lon"));
+          if (point.getAttribute("lat") === null || point.getAttribute("lon") === null ||
+              !Number.isFinite(lat) || !Number.isFinite(lon) ||
+              Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+            throw new Error("Coordonnées invalides");
+          }
+          return [lat, lon];
+        });
+      return [
+        ...Array.from(xml.getElementsByTagNameNS("*", "trkseg"), (segment) => pointsDe(segment, "trkpt")),
+        ...Array.from(xml.getElementsByTagNameNS("*", "rte"), (route) => pointsDe(route, "rtept")),
+      ].filter((parcours) => parcours.length >= 2);
+    };
+
+    const activerImportGpx = (map) => {
+      const fichier = document.getElementById("gpx-file");
+      const liste = document.getElementById("gpx-list");
+      const vider = document.getElementById("gpx-clear");
+      const erreur = document.getElementById("gpx-error");
+      const couches = new Map();
+
+      fichier.addEventListener("change", async () => {
+        const selection = fichier.files[0];
+        fichier.value = "";
+        if (!selection) return;
+        try {
+          const parcours = lireParcoursGpx(await selection.text());
+          if (!parcours.length) throw new Error("Aucun parcours");
+          const couche = L.polyline(parcours, { color: "#a000c0", weight: 4 }).addTo(map);
+          const ligne = document.createElement("li");
+          const nom = document.createElement("span");
+          nom.textContent = `${selection.name} `;
+          const retirer = document.createElement("button");
+          retirer.type = "button";
+          retirer.textContent = "Retirer";
+          retirer.addEventListener("click", () => {
+            map.removeLayer(couche);
+            couches.delete(ligne);
+            ligne.remove();
+            vider.hidden = couches.size === 0;
+          });
+          ligne.append(nom, retirer);
+          liste.append(ligne);
+          couches.set(ligne, couche);
+          vider.hidden = false;
+          erreur.hidden = true;
+          map.fitBounds(couche.getBounds());
+        } catch {
+          erreur.hidden = false;
+        }
+      });
+
+      vider.addEventListener("click", () => {
+        for (const [ligne, couche] of couches) {
+          map.removeLayer(couche);
+          ligne.remove();
+        }
+        couches.clear();
+        vider.hidden = true;
+      });
+    };
+
     if (!window.L) {
       document.getElementById("network-error").hidden = false;
     } else {
-      chargerRefuges(initializeMap());
+      const map = initializeMap();
+      activerImportGpx(map);
+      chargerRefuges(map);
     }
   </script>
 </body>
