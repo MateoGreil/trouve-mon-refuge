@@ -16,7 +16,7 @@
 ============================================================
   </pre>
 
-  <p><b>Résultats dans la vue :</b> <span id="refuge-count">chargement…</span></p>
+  <p><b>Résultats dans la vue :</b> <span id="refuge-count">chargement…</span> <button type="button" id="export-gpx" disabled>Exporter les refuges en GPX</button></p>
 
   <p><b>Critères :</b></p>
   <form id="criteres">
@@ -140,12 +140,20 @@
       refuge.longitude != null &&
       bornes.contains([refuge.latitude, refuge.longitude]);
 
-    const majResultats = (map, couche, tous) => {
+    const refugesDansLaVue = (map, tous) => {
       const criteres = lireCriteres();
-      const pinsClassiques = document.getElementById("crit-pins-classiques").checked;
       const bornes = map.getBounds();
-      const refuges = tous
-        .filter((refuge) => repondAuxCriteres(refuge, criteres) && refugeDansLaVue(refuge, bornes));
+      return tous.filter((refuge) => repondAuxCriteres(refuge, criteres) && refugeDansLaVue(refuge, bornes));
+    };
+
+    const creerGpx = (refuges) => `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Trouve mon refuge" xmlns="http://www.topografix.com/GPX/1/1">\n${refuges.map((refuge) =>
+      `  <wpt lat="${refuge.latitude}" lon="${refuge.longitude}">${Number.isFinite(refuge.altitude) ? `<ele>${refuge.altitude}</ele>` : ""}<name>${escapeHtml(refuge.name)}</name><link href="${escapeHtml(refuge.url)}"/></wpt>\n`
+    ).join("")}</gpx>`;
+
+    const majResultats = (map, couche, tous) => {
+      const pinsClassiques = document.getElementById("crit-pins-classiques").checked;
+      const refuges = refugesDansLaVue(map, tous);
+      document.getElementById("export-gpx").disabled = refuges.length === 0;
 
       couche.clearLayers();
       let compteur = `${refuges.length} refuge${refuges.length > 1 ? "s" : ""}.`;
@@ -192,6 +200,18 @@
           throw new Error(reponse.status);
         }
         const donnees = await reponse.json();
+        document.getElementById("export-gpx").addEventListener("click", () => {
+          const refuges = refugesDansLaVue(map, donnees.refuges);
+          if (!refuges.length) return;
+          const url = URL.createObjectURL(new Blob([creerGpx(refuges)], { type: "application/gpx+xml" }));
+          const lien = document.createElement("a");
+          lien.href = url;
+          lien.download = "refuges.gpx";
+          document.body.append(lien);
+          lien.click();
+          lien.remove();
+          URL.revokeObjectURL(url);
+        });
         const maj = () => majResultats(map, couche, donnees.refuges);
         document.getElementById("criteres").addEventListener("input", maj);
         map.on("moveend", maj);

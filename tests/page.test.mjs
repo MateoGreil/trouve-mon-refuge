@@ -63,9 +63,11 @@ const chargerPage = async ({ reponseFetch, vue = () => true, surcharges = {} }) 
     "crit-murs", "crit-matelas", "crit-pins-classiques",
     "criteres", "refuge-count", "fetch-time", "network-error", "api-error",
     "stale-warning", "map", "gpx-file", "gpx-list", "gpx-clear", "gpx-error",
+    "export-gpx",
   ];
   const elements = Object.fromEntries(ids.map((id) => [id, element(surcharges[id])]));
   elements["crit-pins-classiques"] = element({ checked: false, ...surcharges["crit-pins-classiques"] });
+  elements["export-gpx"] = element({ disabled: true, ...surcharges["export-gpx"] });
 
   const couche = {
     couches: [],
@@ -103,7 +105,11 @@ const chargerPage = async ({ reponseFetch, vue = () => true, surcharges = {} }) 
     },
   };
 
-  const appels = { fetch: [] };
+  const appels = { fetch: [], telechargements: [], blobs: [], revocations: [] };
+  const url = {
+    createObjectURL(blob) { appels.blobs.push(blob); return "blob:refuges"; },
+    revokeObjectURL(lien) { appels.revocations.push(lien); },
+  };
   const fetchStub = async (url) => {
     appels.fetch.push(url);
     if (reponseFetch instanceof Error) throw reponseFetch;
@@ -111,11 +117,19 @@ const chargerPage = async ({ reponseFetch, vue = () => true, surcharges = {} }) 
   };
 
   const script = lireScript();
-  new Function("document", "window", "L", "fetch", script)(
-    { getElementById: (id) => elements[id] },
+  new Function("document", "window", "L", "fetch", "URL", script)(
+    {
+      getElementById: (id) => elements[id],
+      createElement: () => ({
+        click() { appels.telechargements.push({ href: this.href, download: this.download }); },
+        remove() {},
+      }),
+      body: { append() {} },
+    },
     { L },
     L,
     fetchStub,
+    url,
   );
   await new Promise((r) => setTimeout(r, 10));
 
@@ -144,6 +158,67 @@ const refuge = (surcharge = {}) => ({
 const snapshot = (refuges, ageJours = 0) => ({
   updatedAt: new Date(Date.now() - ageJours * 864e5).toISOString(),
   refuges,
+});
+
+test("exporte les refuges filtrés dans la vue en points GPX compatibles OsmAnd", async () => {
+  const { elements, appels } = await chargerPage({
+    reponseFetch: snapshot([
+      refuge({ id: 1, name: 'Cabane & <test> "été"', url: "https://www.refuges.info/point/1/?a=1&b=2" }),
+      refuge({ id: 2, name: "Hors vue", latitude: -33 }),
+      refuge({ id: 3, name: "Sans cheminée", chimney: false }),
+    ]),
+    vue: (lat) => lat > 0,
+  });
+  assert.equal(elements["export-gpx"].disabled, false);
+  elements["export-gpx"].listeners.click();
+  assert.deepEqual(appels.telechargements, [{ href: "blob:refuges", download: "refuges.gpx" }]);
+  assert.equal(appels.blobs[0].type, "application/gpx+xml");
+  assert.equal(await appels.blobs[0].text(), '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<gpx version="1.1" creator="Trouve mon refuge" xmlns="http://www.topografix.com/GPX/1/1">\n' +
+    '  <wpt lat="42.9" lon="-0.07"><ele>1500</ele><name>Cabane &amp; &lt;test&gt; &quot;été&quot;</name><link href="https://www.refuges.info/point/1/?a=1&amp;b=2"/></wpt>\n' +
+    '</gpx>');
+  assert.deepEqual(appels.revocations, ["blob:refuges"]);
+});
+
+test("désactive l'export sans refuge, après filtrage ou si le snapshot est indisponible", async () => {
+  const { elements, appels } = await chargerPage({ reponseFetch: snapshot([refuge()]) });
+  assert.equal(elements["export-gpx"].disabled, false);
+  elements["crit-cheminee"].checked = false;
+  elements["crit-places"].value = "20";
+  elements.criteres.listeners.input();
+  assert.equal(elements["export-gpx"].disabled, true);
+  elements["export-gpx"].listeners.click();
+  assert.equal(appels.telechargements.length, 0);
+
+  const indisponible = await chargerPage({ reponseFetch: new Error("hors ligne") });
+  assert.equal(indisponible.elements["export-gpx"].disabled, true);
+  assert.equal(indisponible.appels.telechargements.length, 0);
+});
+
+test("exporte plus de 1000 refuges même lorsque les marqueurs sont masqués", async () => {
+  const refuges = Array.from({ length: 1001 }, (_, index) => refuge({ id: index, name: `Cabane ${index}` }));
+  const { elements, couche, appels } = await chargerPage({ reponseFetch: snapshot(refuges) });
+  assert.equal(couche.couches.length, 0);
+  elements["export-gpx"].listeners.click();
+  const texte = await appels.blobs[0].text();
+  assert.equal((texte.match(/<wpt /g) ?? []).length, 1001);
+  assert.match(texte, /<name>Cabane 1000<\/name>/);
+});
+
+test("exporte l'état des critères et de la vue au clic, sans altitude inconnue", async () => {
+  let vue = true;
+  const { elements, carte, appels } = await chargerPage({
+    reponseFetch: snapshot([refuge({ id: 1, altitude: null }), refuge({ id: 2, name: "Deux", chimney: false })]),
+    vue: () => vue,
+  });
+  elements["crit-cheminee"].checked = false;
+  elements.criteres.listeners.input();
+  elements["export-gpx"].listeners.click();
+  assert.equal((await appels.blobs[0].text()).match(/<wpt /g).length, 2);
+  assert.doesNotMatch(await appels.blobs[0].text(), /<ele>0<\/ele>/);
+  vue = false;
+  carte.listeners.moveend();
+  assert.equal(elements["export-gpx"].disabled, true);
 });
 
 test("récupère le snapshot local /data/refuges.json", async () => {
