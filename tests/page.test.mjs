@@ -57,7 +57,7 @@ const element = (surcharge = {}) => ({
   ...surcharge,
 });
 
-const chargerPage = async ({ reponseFetch, vue = () => true, surcharges = {} }) => {
+const chargerPage = async ({ reponseFetch, vue = () => true, surcharges = {}, pleinEcran = false, fullscreenEnabled = true }) => {
   const ids = [
     "crit-ouvert", "crit-cheminee", "crit-eau", "crit-foret", "crit-places",
     "crit-murs", "crit-matelas", "crit-pins-classiques",
@@ -77,11 +77,47 @@ const chargerPage = async ({ reponseFetch, vue = () => true, surcharges = {} }) 
   };
   const carte = {
     setView() { return this; },
+    invalidateSize() { appelsRedimensionnement.count++; return this; },
     getBounds() { return { contains: ([lat, lon]) => vue(lat, lon) }; },
     listeners: {},
     on(evenement, rappel) { this.listeners[evenement] = rappel; },
   };
+  const appelsRedimensionnement = { count: 0 };
+  let boutonPleinEcran;
+  let positionPleinEcran;
+  const documentListeners = {};
+  const documentStub = {
+    fullscreenElement: null,
+    fullscreenEnabled,
+    getElementById: (id) => elements[id],
+    addEventListener(evenement, rappel) { documentListeners[evenement] = rappel; },
+    exitFullscreen() {
+      this.fullscreenElement = null;
+      documentListeners.fullscreenchange();
+    },
+    createElement: () => ({
+      listeners: {},
+      addEventListener(evenement, rappel) { this.listeners[evenement] = rappel; },
+      click() { appels.telechargements.push({ href: this.href, download: this.download }); },
+      remove() {},
+    }),
+    body: { append() {} },
+  };
+  if (pleinEcran) {
+    elements.map.requestFullscreen = () => {
+      documentStub.fullscreenElement = elements.map;
+      documentListeners.fullscreenchange();
+      return Promise.resolve();
+    };
+  }
   const L = {
+    control: (options) => ({
+      addTo(map) {
+        positionPleinEcran = options.position;
+        boutonPleinEcran = this.onAdd(map);
+      },
+    }),
+    DomEvent: { disableClickPropagation() {} },
     map: () => carte,
     tileLayer: () => ({ on() {}, addTo() {} }),
     layerGroup: () => couche,
@@ -118,14 +154,7 @@ const chargerPage = async ({ reponseFetch, vue = () => true, surcharges = {} }) 
 
   const script = lireScript();
   new Function("document", "window", "L", "fetch", "URL", script)(
-    {
-      getElementById: (id) => elements[id],
-      createElement: () => ({
-        click() { appels.telechargements.push({ href: this.href, download: this.download }); },
-        remove() {},
-      }),
-      body: { append() {} },
-    },
+    documentStub,
     { L },
     L,
     fetchStub,
@@ -133,7 +162,7 @@ const chargerPage = async ({ reponseFetch, vue = () => true, surcharges = {} }) 
   );
   await new Promise((r) => setTimeout(r, 10));
 
-  return { elements, carte, couche, appels };
+  return { elements, carte, couche, appels, boutonPleinEcran, positionPleinEcran, documentStub, appelsRedimensionnement, documentListeners };
 };
 
 const refuge = (surcharge = {}) => ({
@@ -158,6 +187,43 @@ const refuge = (surcharge = {}) => ({
 const snapshot = (refuges, ageJours = 0) => ({
   updatedAt: new Date(Date.now() - ageJours * 864e5).toISOString(),
   refuges,
+});
+
+test("agrandit uniquement la carte et restaure son affichage avec le bouton ou Échap", async () => {
+  const { elements, boutonPleinEcran, positionPleinEcran, documentStub, documentListeners, appelsRedimensionnement } =
+    await chargerPage({ reponseFetch: snapshot([]), pleinEcran: true });
+  assert.equal(positionPleinEcran, "topleft");
+  assert.equal(boutonPleinEcran.textContent, "Plein écran");
+
+  boutonPleinEcran.listeners.click();
+  assert.equal(documentStub.fullscreenElement, elements.map);
+  assert.equal(boutonPleinEcran.textContent, "Quitter le plein écran");
+  assert.equal(appelsRedimensionnement.count, 1);
+
+  boutonPleinEcran.listeners.click();
+  assert.equal(documentStub.fullscreenElement, null);
+  assert.equal(boutonPleinEcran.textContent, "Plein écran");
+  assert.equal(appelsRedimensionnement.count, 2);
+
+  boutonPleinEcran.listeners.click();
+  documentStub.fullscreenElement = null;
+  documentListeners.fullscreenchange();
+  assert.equal(boutonPleinEcran.textContent, "Plein écran");
+  assert.equal(appelsRedimensionnement.count, 4);
+});
+
+test("n'affiche pas le bouton si le plein écran est indisponible", async () => {
+  const { boutonPleinEcran } = await chargerPage({ reponseFetch: snapshot([]) });
+  assert.equal(boutonPleinEcran, undefined);
+});
+
+test("masque le bouton quand la politique du navigateur interdit le plein écran", async () => {
+  const { boutonPleinEcran } = await chargerPage({
+    reponseFetch: snapshot([]),
+    pleinEcran: true,
+    fullscreenEnabled: false,
+  });
+  assert.equal(boutonPleinEcran, undefined);
 });
 
 test("exporte les refuges filtrés dans la vue en points GPX compatibles OsmAnd", async () => {

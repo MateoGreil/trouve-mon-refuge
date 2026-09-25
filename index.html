@@ -6,6 +6,7 @@
   <title>Trouve mon refuge</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <style>#map:fullscreen { height: 100vh !important; min-height: 0 !important; }</style>
 </head>
 <body>
   <h1>TROUVE MON REFUGE</h1>
@@ -298,10 +299,39 @@
       });
     };
 
+    const activerPleinEcran = (map) => {
+      const conteneur = document.getElementById("map");
+      if (!conteneur?.requestFullscreen || !document.exitFullscreen || document.fullscreenEnabled === false) return;
+
+      const controle = L.control({ position: "topleft" });
+      controle.onAdd = () => {
+        const bouton = document.createElement("button");
+        bouton.type = "button";
+        bouton.className = "leaflet-bar";
+        bouton.textContent = "Plein écran";
+        L.DomEvent.disableClickPropagation(bouton);
+        bouton.addEventListener("click", () => {
+          if (document.fullscreenElement === conteneur) {
+            document.exitFullscreen();
+          } else {
+            conteneur.requestFullscreen().catch(() => {});
+          }
+        });
+        document.addEventListener("fullscreenchange", () => {
+          bouton.textContent = document.fullscreenElement === conteneur
+            ? "Quitter le plein écran" : "Plein écran";
+          map.invalidateSize();
+        });
+        return bouton;
+      };
+      controle.addTo(map);
+    };
+
     if (!window.L) {
       document.getElementById("network-error").hidden = false;
     } else {
       const map = initializeMap();
+      activerPleinEcran(map);
       activerImportGpx(map);
       chargerRefuges(map);
     }
