@@ -251,12 +251,15 @@
       ].filter((parcours) => parcours.length >= 2);
     };
 
+    const PALETTE_GPX = ["#a000c0", "#c00000", "#1060c0", "#0a8a3a", "#e07800", "#a09000", "#009090", "#d0559e"];
+
     const activerImportGpx = (map) => {
       const fichier = document.getElementById("gpx-file");
       const liste = document.getElementById("gpx-list");
       const vider = document.getElementById("gpx-clear");
       const erreur = document.getElementById("gpx-error");
       const couches = new Map();
+      let numeroFichier = 0;
 
       fichier.addEventListener("change", async () => {
         const selection = fichier.files[0];
@@ -265,8 +268,12 @@
         try {
           const parcours = lireParcoursGpx(await selection.text());
           if (!parcours.length) throw new Error("Aucun parcours");
-          const couche = L.polyline(parcours, { color: "#a000c0", weight: 4 }).addTo(map);
+          const couleur = PALETTE_GPX[numeroFichier % PALETTE_GPX.length];
+          numeroFichier += 1;
+          const couche = L.polyline(parcours, { color: couleur, weight: 4 }).addTo(map);
           const ligne = document.createElement("li");
+          const pastille = document.createElement("span");
+          pastille.style.cssText = `display:inline-block;width:1em;height:1em;margin-right:4px;vertical-align:-2px;border:1px solid #555;background:${couleur}`;
           const nom = document.createElement("span");
           nom.textContent = `${selection.name} `;
           const retirer = document.createElement("button");
@@ -278,7 +285,7 @@
             ligne.remove();
             vider.hidden = couches.size === 0;
           });
-          ligne.append(nom, retirer);
+          ligne.append(pastille, nom, retirer);
           liste.append(ligne);
           couches.set(ligne, couche);
           vider.hidden = false;

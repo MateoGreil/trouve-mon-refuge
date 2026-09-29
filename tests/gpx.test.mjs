@@ -30,7 +30,7 @@ class Parser {
 }
 
 const element = () => ({
-  hidden: true, value: "", files: [], children: [], listeners: {},
+  hidden: true, value: "", files: [], children: [], listeners: {}, style: {},
   addEventListener(name, fn) { this.listeners[name] = fn; },
   append(...children) { this.children.push(...children); },
   remove() { this.removed = true; },
@@ -49,7 +49,7 @@ const load = () => {
     map: () => map,
     tileLayer: () => ({ on() {}, addTo() {} }),
     layerGroup: () => ({ addTo() { return this; } }),
-    polyline: (lines) => ({ lines, addTo() { map.layers.push(this); return this; }, getBounds() { return lines; } }),
+    polyline: (lines, options) => ({ lines, options, addTo() { map.layers.push(this); return this; }, getBounds() { return lines; } }),
   };
   new Function("document", "window", "L", "fetch", "DOMParser", script)(
     { getElementById: (id) => elements[id], createElement: () => element() },
@@ -64,6 +64,7 @@ const load = () => {
 
 const trace = `<gpx><wpt lat="9" lon="9"/><trk><trkseg><trkpt lat="42" lon="-1"/><trkpt lat="43" lon="-2"/></trkseg><trkseg><trkpt lat="44" lon="-3"/><trkpt lat="45" lon="-4"/></trkseg></trk></gpx>`;
 const route = `<gpx><rte><rtept lat="46" lon="0"/><rtept lat="47" lon="1"/></rte></gpx>`;
+const palette = JSON.parse(script.match(/const PALETTE_GPX = (\[[^\]]*\])/)[1]);
 
 test("importe des segments séparés sans relier les traces ni afficher les points de passage", async () => {
   const { map, elements, importFile } = load();
@@ -72,7 +73,7 @@ test("importe des segments séparés sans relier les traces ni afficher les poin
     [[42, -1], [43, -2]], [[44, -3], [45, -4]],
   ]);
   assert.equal(map.fitBoundsCalls.length, 1);
-  assert.equal(elements["gpx-list"].children[0].children[0].textContent, "balade.gpx ");
+  assert.equal(elements["gpx-list"].children[0].children[1].textContent, "balade.gpx ");
 });
 
 test("importe aussi un GPX avec préfixe d'espace de noms", async () => {
@@ -87,7 +88,7 @@ test("ajoute une route et permet de retirer chaque fichier ou tous les fichiers"
   await importFile("route.gpx", route);
   assert.equal(map.layers.length, 2);
   assert.deepEqual(map.layers[1].lines, [[[46, 0], [47, 1]]]);
-  elements["gpx-list"].children[0].children[1].listeners.click();
+  elements["gpx-list"].children[0].children[2].listeners.click();
   assert.deepEqual(map.layers.map((layer) => layer.lines), [[[[46, 0], [47, 1]]]]);
   elements["gpx-clear"].listeners.click();
   assert.equal(map.layers.length, 0);
@@ -104,4 +105,26 @@ test("refuse les fichiers invalides et les GPX sans parcours sans effacer l'exis
     assert.equal(map.layers.length, 1);
     assert.equal(map.fitBoundsCalls.length, 1);
   }
+});
+
+test("donne à chaque fichier une couleur de la palette affichée à côté de son nom", async () => {
+  const { map, elements, importFile } = load();
+  await importFile("un.gpx", trace);
+  await importFile("deux.gpx", route);
+  const couleurs = map.layers.map((couche) => couche.options.color);
+  assert.equal(new Set(couleurs).size, 2);
+  for (const couleur of couleurs) assert.equal(palette.includes(couleur), true);
+  for (const [i, couleur] of couleurs.entries()) {
+    assert.equal(elements["gpx-list"].children[i].children[0].style.cssText.includes(couleur), true);
+  }
+});
+
+test("cycle la palette après épuisement sans réutiliser la couleur d'un fichier retiré", async () => {
+  const { map, elements, importFile } = load();
+  for (let i = 0; i < palette.length + 1; i += 1) await importFile(`f${i}.gpx`, route);
+  assert.equal(map.layers[palette.length].options.color, map.layers[0].options.color);
+  elements["gpx-list"].children[0].children[2].listeners.click();
+  await importFile("encore.gpx", route);
+  assert.equal(map.layers.at(-1).options.color, palette[1]);
+  assert.equal(map.layers.length, palette.length + 1);
 });
