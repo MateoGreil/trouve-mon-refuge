@@ -57,7 +57,7 @@ const element = (surcharge = {}) => ({
   ...surcharge,
 });
 
-const chargerPage = async ({ reponseFetch, vue = () => true, surcharges = {}, pleinEcran = false, fullscreenEnabled = true }) => {
+const chargerPage = async ({ reponseFetch, vue = () => true, surcharges = {}, pleinEcran = false, fullscreenEnabled = true, pressePapiers = { writeText: async () => {} } }) => {
   const ids = [
     "crit-ouvert", "crit-cheminee", "crit-eau", "crit-foret", "crit-places",
     "crit-murs", "crit-matelas", "crit-pins-classiques",
@@ -153,12 +153,13 @@ const chargerPage = async ({ reponseFetch, vue = () => true, surcharges = {}, pl
   };
 
   const script = lireScript();
-  new Function("document", "window", "L", "fetch", "URL", script)(
+  new Function("document", "window", "L", "fetch", "URL", "navigator", script)(
     documentStub,
     { L },
     L,
     fetchStub,
     url,
+    { clipboard: pressePapiers },
   );
   await new Promise((r) => setTimeout(r, 10));
 
@@ -474,4 +475,54 @@ test("redessine les marqueurs au changement de la case pins classiques", async (
   elements["crit-pins-classiques"].checked = false;
   elements.criteres.listeners.input();
   assert.ok(couche.couches[0].options.icon.__iconeRefugesInfo);
+});
+
+test("affiche un bouton de copie avec la localisation à 5 décimales dans la popup", async () => {
+  const { couche } = await chargerPage({
+    reponseFetch: snapshot([refuge({ id: 1, latitude: 42.9, longitude: -0.07 })]),
+  });
+  assert.match(
+    couche.couches[0].popup,
+    /<button type="button" class="copier-localisation" data-localisation="42\.90000, -0\.07000">Copier la localisation<\/button>/,
+  );
+});
+
+test("copie la localisation dans le presse-papiers puis rétablit le libellé", async (t) => {
+  const copies = [];
+  const { elements } = await chargerPage({
+    reponseFetch: snapshot([refuge()]),
+    pressePapiers: { writeText: async (texte) => copies.push(texte) },
+  });
+  const bouton = { dataset: { localisation: "42.90000, -0.07000" }, textContent: "Copier la localisation" };
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    await elements.map.listeners.click({
+      target: { closest: (selecteur) => (selecteur === ".copier-localisation" ? bouton : null) },
+    });
+    assert.deepEqual(copies, ["42.90000, -0.07000"]);
+    assert.equal(bouton.textContent, "Copié !");
+    t.mock.timers.tick(2000);
+    assert.equal(bouton.textContent, "Copier la localisation");
+  } finally {
+    t.mock.timers.reset();
+  }
+});
+
+test("signale une copie impossible puis rétablit le libellé quand le presse-papiers échoue", async (t) => {
+  const copies = [];
+  const { elements } = await chargerPage({
+    reponseFetch: snapshot([refuge()]),
+    pressePapiers: { writeText: async (texte) => { copies.push(texte); throw new Error("refusé"); } },
+  });
+  const bouton = { dataset: { localisation: "42.90000, -0.07000" }, textContent: "Copier la localisation" };
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    await elements.map.listeners.click({ target: { closest: () => bouton } });
+    assert.deepEqual(copies, ["42.90000, -0.07000"]);
+    assert.equal(bouton.textContent, "Copie impossible");
+    t.mock.timers.tick(2000);
+    assert.equal(bouton.textContent, "Copier la localisation");
+  } finally {
+    t.mock.timers.reset();
+  }
 });

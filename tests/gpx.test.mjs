@@ -37,7 +37,7 @@ const element = () => ({
 });
 
 const load = () => {
-  const ids = ["gpx-file", "gpx-list", "gpx-clear", "gpx-error", "network-error", "api-error"];
+  const ids = ["gpx-file", "gpx-list", "gpx-clear", "gpx-error", "network-error", "api-error", "map"];
   const elements = Object.fromEntries(ids.map((id) => [id, element()]));
   const map = {
     layers: [], fitBoundsCalls: [],

@@ -182,7 +182,8 @@
               <tr><td>Latitude :</td><td>${refuge.latitude.toFixed(5)}</td></tr>
               <tr><td>Longitude :</td><td>${refuge.longitude.toFixed(5)}</td></tr>
             </table>
-            <a href="${escapeHtml(refuge.url)}" target="_blank" rel="noopener noreferrer">Voir la fiche Refuges.info</a>
+            <a href="${escapeHtml(refuge.url)}" target="_blank" rel="noopener noreferrer">Voir la fiche Refuges.info</a><br>
+            <button type="button" class="copier-localisation" data-localisation="${refuge.latitude.toFixed(5)}, ${refuge.longitude.toFixed(5)}">Copier la localisation</button>
           `);
           marker.addTo(couche);
           if (iconeRefugesInfo) {
@@ -334,12 +335,29 @@
       controle.addTo(map);
     };
 
+    const LIBELLE_COPIE = "Copier la localisation";
+
+    const activerCopieLocalisation = () => {
+      document.getElementById("map").addEventListener("click", async (evenement) => {
+        const bouton = evenement.target.closest(".copier-localisation");
+        if (!bouton) return;
+        try {
+          await navigator.clipboard.writeText(bouton.dataset.localisation);
+          bouton.textContent = "Copié !";
+        } catch {
+          bouton.textContent = "Copie impossible";
+        }
+        setTimeout(() => { bouton.textContent = LIBELLE_COPIE; }, 2000);
+      });
+    };
+
     if (!window.L) {
       document.getElementById("network-error").hidden = false;
     } else {
       const map = initializeMap();
       activerPleinEcran(map);
       activerImportGpx(map);
+      activerCopieLocalisation();
       chargerRefuges(map);
     }
   </script>
